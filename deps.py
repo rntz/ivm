@@ -1,4 +1,4 @@
-# -*- fill-column: 60 -*-
+# -*- fill-column: 65 -*-
 # 
 # a simple dependency tracking system
 # pull-based, like Make
@@ -28,71 +28,59 @@ class MakelikeInterface:
     # Returns a node's current value.
     def read(self, node): pass
 
-    # Updates the value associated with a node. This node must be a "source" in
-    # our dependency graph, i.e. must NOT have a rule for building it.
+    # Updates the value associated with a node. This node
+    # must be a "source" in our dependency graph, i.e. must
+    # NOT have a rule for building it.
     def write(self, node, value): pass
 
 
 # ---------- IMPLEMENTATION ----------
-from dataclasses import dataclass
+from collections import namedtuple
 
-# The current state associated with a node in our dependency graph.
-@dataclass
-class State:
-    # Current computed value.
-    value: object
-    # The version of this value. Increments every time it's recomputed.
-    version: int
-    # The versions of each dependency used to rebuild this value. The order
-    # matches the order the dependencies are listed in the dependency graph.
-    dep_versions: List[int]
+NodeState = namedtuple('NodeState', ['value', 'time'])
 
 class Makelike:
     def __init__(self, dependency_graph):
         self.graph = dependency_graph
-        # Maps each node to its current State.
-        self.states = {}
+        # Current logical time.
+        self.now = 0
+        # Maps nodes to NodeStates.
+        self.cache = {}
 
     def write(self, node, value):
-        print(f"WRITE {node} <- {value!r}")
-        # We can only write to "inputs", i.e. keys that *don't* have a rule for
-        # building them.
+        # We can only write to "inputs", i.e. keys that don't
+        # have a rule for building them.
         assert node not in self.graph.keys()
-        state = self.states.get(node)
-        version = state.version + 1 if state is not None else 0
-        self.states[node] = State(value, version, [])
+        # Increment the current time on each write.
+        self.now += 1
+        self.cache[node] = NodeState(value, self.now)
+        print(f"t={self.now} WRITE {node} <- {value!r}")
 
-    # Returns a node's current value, recomputing dependencies transitively if
-    # necessary.
+    # Returns a node's current value, recomputing dependencies
+    # transitively if necessary.
     def read(self, node):
-        print(f"READ {node}")
+        print(f"t={self.now} READ {node}")
         return self.compute(node).value
 
-    # Brings a node up to date & computes its State.
+    # Brings a node up to date, returning its NodeState.
     def compute(self, node):
-        # If the node doesn't have a build rule in the dependency graph, it's
-        # assumed to be an input; we simply read its current value.
+        # If the node doesn't have a build rule in the dependency
+        # graph, it's assumed to be an input; we simply read its
+        # current value.
         if node not in self.graph:
-            return self.states[node]
-
-        (callback, *dependencies) = self.graph[node]
+            return self.cache[node]
 
         # Bring all dependencies up to date.
-        dep_states = [self.compute(k) for k in dependencies]
+        (callback, *dependencies) = self.graph[node]
+        deps = [self.compute(d) for d in dependencies]
 
-        # We rebuild if
-        # (1) we've never built before, or
-        # (2) any dependency is out of date.
-        state = self.states.get(node)
-        rebuild = state is None or any(
-            s.version != v for (s,v) in zip(dep_states, state.dep_versions))
-
-        if rebuild:
-            value = callback(*(s.value for s in dep_states))
-            version = state.version + 1 if state is not None else 0
-            dep_versions = [s.version for s in dep_states]
-            state = State(value, version, dep_versions)
-            self.states[node] = state
+        # Rebuild if
+        # (1) we've never been built before, or
+        # (2) any dependency was built more recently than us.
+        state = self.cache.get(node)
+        if state is None or any(state.time < d.time for d in deps):
+            value = callback(*(d.value for d in deps))
+            state = self.cache[node] = NodeState(value, self.now)
 
         return state
 
@@ -101,13 +89,14 @@ class Makelike:
 import base64
 
 def compiler(source):
-    result = base64.b64encode(source.encode('utf8')).decode("utf8")
-    print(f"compiled {source!r} to {result!r}")
+    hashcode = (hash(source) % (2 ** 24)).to_bytes(3)
+    result = base64.b64encode(hashcode).decode('utf8')
+    print(f"compiled {source!r} to {result}")
     return result
 
-def linker(*object_file_contents):
-    result = " ".join(object_file_contents)
-    print(f"linking {result!r}")
+def linker(*objects):
+    result = " ".join(x for x in objects)
+    print(f"linking {result}")
     return result
 
 graph = {
