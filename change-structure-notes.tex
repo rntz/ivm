@@ -1,0 +1,312 @@
+\documentclass{article}
+
+\usepackage[letterpaper,
+  hratio=1:1,vratio=1:1,
+  text={121mm,220mm},             % 5:9
+  %text={121mm,212mm},             % 4:7
+  %text={140mm,210mm},            % 2:3
+  %text={152mm,228mm}, % 2:3
+  %text={162mm,228mm}, % 5:7
+]{geometry}
+
+%% FONTS & TYPOGRAPHY
+
+%% ---------- OPTION 1: CHARTER ----------
+\usepackage[sups,scaled=.96]{XCharter}
+\usepackage[scaled=1.010417965903645]{inconsolata}
+\usepackage[scaled=0.95,proportional,semibold]{sourcesanspro}
+%\usepackage[osf,scaled=1.007,scaled=1.033,scaled=1.02,]{AlegreyaSans}
+\usepackage{eulervm}
+\edef\zeu@Scale{0.99}
+\PassOptionsToPackage{scaled=\zeu@Scale,bbscaled=\zeu@Scale,scrscaled=\zeu@Scale}{mathalfa}
+\RequirePackage[cal=cm]{mathalfa}
+%% Make sure \mathbold and \mathvar are defined.
+\linespread{1.06667}            %eyeballed
+
+%% %% ---------- OPTION 2: PALATINO ----------
+%% \usepackage[scaled=.96,largesc,nohelv]{newpxtext}
+%% \usepackage[scaled=1.0176]{biolinum}
+%% \usepackage[scaled=0.964203422764601]{inconsolata}
+%% \edef\zeu@Scale{.96}
+%% %% HACK: newpxtext doesn't respect fontaxes' \tbfigures! :( but it _does_
+%% %% define, eg., \tlfstyle! hm...
+%% \usepackage{fontaxes}
+%% \renewcommand\tbfigures{}
+%% \renewcommand\lnfigures{}
+%% %\linespread{1.023435141098595}
+%% \linespread{1.08}              % eyeballed 2025-02-06
+%% %% %% NEWPXMATH %%
+%% %% \usepackage[scaled=.96,vvarbb,smallerops]{newpxmath}
+%% %% \usepackage[bb=ams,bbscaled=.96,cal=cm]{mathalfa}
+%% %% EULER MATH %%
+%% \usepackage{eulervm}
+%% \PassOptionsToPackage{scaled=\zeu@Scale,bbscaled=\zeu@Scale,scrscaled=\zeu@Scale}{mathalfa}
+%% \usepackage[cal=cm]{mathalfa}
+
+%% %% END FONTS & TYPOGRAPHY
+
+\usepackage[dvipsnames]{xcolor}
+%% cleveref must be loaded AFTER hyperref & amsmath, or it errors; and AFTER
+%% amsthm and BEFORE we define theorem styles, otherwise (eg) it calls lemmas
+%% "Theorem"s.
+\usepackage{hyperref,url}
+\usepackage{amsmath,amsthm}
+\usepackage[nameinlink,noabbrev]{cleveref}
+\usepackage{mathpartir}
+\usepackage{mathtools}          %\Coloneqq, \dblcolon
+\usepackage{amssymb}            %\multimap
+%\usepackage{stmaryrd}           %\llbracket, \shortrightarrow
+%\usepackage{array}              %\setlength\extrarowheight
+%\usepackage{booktabs}           %\midrule
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
+
+\newcommand\crefrangeconjunction{--} % use en-dashes for ranges.
+\creflabelformat{equation}{#2#1#3}
+\crefformat{footnote}{#2\footnotemark[#1]#3} % referencing footnotes
+
+\newcommand\ensuretext[1]{{\ifmmode\text{#1}\else{#1}\fi}}
+\newcommand\strong[1]{{\bfseries#1}}
+
+\newcommand\defeq\triangleq
+\newcommand\bnfeq{\Coloneqq}
+\newcommand\bnfor{\mathrel{\,|\,}}
+
+\newcommand\fnspace\:           %binder space
+\newcommand\fn[1]{\lambda{#1}.\fnspace}
+\newcommand\<\;                 %function application space
+
+\newcommand\quantifierspace{\ }
+\newcommand\quantify[1]{({#1})\quantifierspace}
+\newcommand\fa[1]{\quantify{\forall #1}}
+\newcommand\ex[1]{\quantify{\exists #1}}
+\newcommand\faex[2]{\quantify{\forall #1, \exists #2}}
+
+\newcommand\changes[3]{{#1} \dblcolon {#2} \leadsto {#3}}
+\newcommand\D\Delta
+\newcommand\init{\text{init}}
+\newcommand\update{\text{update}}
+\newcommand\Set{\text{Set}}
+\newcommand\State{\text{State}}
+\newcommand\lto\multimap
+
+\newcommand\todo[1]{\ensuretext{\color{OrangeRed}#1}}
+
+
+\begin{document}
+
+\section{Monoids acting on themselves}
+
+One simple way of representing values which may change is a \emph{monoid,} namely some triple $(A,+,0)$ of a set $A$, an operator ${+} : A \times A \to A$, and a zero element $0 : A$ satisfying:
+%
+\begin{align*}
+  x + 0 &= x\\
+  0 + x &= x\\
+  x + (y + z) &= (x + y) + z
+\end{align*}
+
+\noindent
+We ``change'' values by adding to them with $+$, while $0$ represents ``no change.''
+
+\begin{definition}
+  We write $f : A \lto B$ to indicate that $f$ is a \emph{monoid homomorphism} from $A$ to $B$, that is, that $f(0_A) = 0_B$ and $f(x +_A b) = f(x) +_B f(y)$.
+\end{definition}
+
+\begin{definition}[State monoid]
+  Given a set $S$ and a monoid $(A,+,0)$, we define the monoid of $A$-valued $S$-transformations as $\State(S,A) \defeq (S \to S \times A, \text{nop}, \text{seq})$ where
+%
+  \begin{align*}
+    \text{nop}(s) &= (s, 0)\\
+    %% \text{seq}(f,g)(s) &=
+    %% \text{let}~ (s_1,a_1) = g(s) ~\text{in let}~ (s_2,a2) = f(s_1) ~\text{in}~
+    %% (s_2, a_1 + a_2)
+    \text{seq}(f,g)(s) &= (s'', a_1 + a_2)
+    ~\text{where}~ (s', a_1) = f(s) ~\text{and}~ (s'', a_2) = g(s')
+  \end{align*}
+\end{definition}
+
+\newcommand\initout{\init^{\text{out}}}
+\newcommand\initstate{\init^{\text{state}}}
+
+\begin{definition}
+  An \emph{incremental map} $f : A \to B$ between monoids $A, B$ is a tuple $(S_f, \initout_f, \initstate_f, \update_f)$ where:
+  \begin{align*}
+    S_f &: \Set
+    &
+    \initout_f &: B
+    &
+    \initstate_f &: S_f
+    &
+    \update_f &: A \lto \State({S_f}, B)
+  \end{align*}
+\end{definition}
+
+\noindent
+The idea is that elements of $S_f$ represent the states of our incremental operator, and $\initstate_f$ is our initial such state.
+Then $\update_f(a)(s)$ takes an input delta $a : A$ and a state $s : S_f$ and produces a pair $(s', b)$ of an updated state $s' : S_f$ and an output delta $b : B$.
+Finally, $\initout_f$ represents the ``initial output'' that we produce even with an input of $0_A$.
+Putting this together we can recover the function we are incrementalizing:
+
+\begin{definition}
+  The \emph{underlying function} $|f| : A \to B$ of an incremental map $f : A \to B$ is given by:
+%
+  \begin{align*}
+    |f|(a) &= \initout_f + b  ~\text{where}~(s,b) = \update_f(a)(\initstate_f)
+  \end{align*}
+\end{definition}
+
+\noindent
+\todo{TODO: Prove determinism of incremental maps.}
+\\
+\todo{TODO: Show how to compose incremental maps.}
+
+
+\section{Change actions}
+
+Change actions generalize monoids by allowing the type of \emph{deltas} to differ from the type of \emph{values}.
+Deltas must form a monoid, but values may not; deltas must act on values in a way that respects the monoid structure.
+%% Change actions enrich change structures by requiring that $\D A$ form a \emph{monoid} and $\oplus_A$ be a \emph{monoid action} on $|A|$.
+These are \emph{monoid actions,} another well-known mathematical structure, but their application in formalizing incremental computation originates (to my knowledge) in the work of Mario Alvarez-Picallo, e.g.\ ``Fixing Incremental Computation''.
+
+\begin{definition}
+  A \emph{change action} $A$ is a tuple $(|A|, \D A, \oplus_A)$ where:
+%
+  \begin{align*}
+    |A| &: \Set
+    &
+    \D A &= (|\D A|, +, 0) \ \text{is a monoid}
+    &
+    \oplus_A &: |A| \times \D A \to |A|
+  \end{align*}
+%
+  such that:
+%
+  \begin{align*}
+    a \oplus 0 &= a
+    &
+    a \oplus (da + da') &= (a \oplus da) \oplus da'
+  \end{align*}
+%
+  In other words, $\oplus_A$ is a monoid action of $\D A$ on $|A|$.
+\end{definition}
+
+\begin{definition}
+  A \emph{incremental map} $f : A \to B$ between change actions $A,B$ is a tuple $(S_f, \init_f, \update_f)$ where
+%
+  \begin{align*}
+    S_f &: \Set
+    \\
+    \init_f &: |A| \to S_f \times |B|
+    \\
+    \update_f &: \D A \lto \State({S_f}, \D B)
+  \end{align*}
+\end{definition}
+
+%% \begin{remark}
+%%   Observe that our coherence conditions have \emph{vanished!}
+%%   This is because we have managed to entirely capture them in the requirement that $\update_f$ be a monoid homomorphism from $\D A$ to $\State(S_f, \D B)$. \todo{TODO: prove this!}
+%% \end{remark}
+
+
+\section{Change structures}
+
+Change structures represent a type equipped with a type of deltas, \emph{without} assuming that deltas form a monoid.
+Their definition is given by Giarrusso in his PhD thesis, although I believe he calls the definition I give here ``basic change structures''.
+Their roots lie in an earlier paper ``A theory of changes for higher-order languages'' by Cai et al.
+
+\begin{definition}
+  A \emph{change structure} $A$ is a triple $(|A|, \Delta A, V_A)$ of two sets $|A|, \Delta A$ and a ternary relation $V_A \subseteq \Delta A \times |A| \times |A|$.
+  We will write $\changes{dx}{x}{y} : A$ to denote $(dx, x, y) \in V_A$ and gloss this as ``$dx$ changes $x$ into $y$''.
+  In almost all useful change structures, this relation is functional, meaning that if $\changes{dx}{x}{y}$ and $\changes{dx}{x}{y'}$ then $y = y'$.
+\end{definition}
+
+\begin{definition}
+  For change structures $A,B$, a \emph{derivative} of a map $f : |A| \to |B|$ is a map $f' : |A| \times \D A \to \D B$ such that
+%
+  \[
+  \fa{dx,x,y} \changes{dx}{x}{y} : A \implies \changes{f'\<(x,dx)}{f\<x}{f\<y}
+  \]
+%
+  In other words, it converts changes to f's input into changes to f's output.
+\end{definition}
+
+\begin{definition}
+  A \emph{incremental map} $f : A \to B$ between change structures $A,B$ consists of a triple $(S_f, \init_f, \update_f)$ with these types:
+%
+  \begin{align*}
+    S_f &: \Set
+    &&\text{the state type}
+    \\
+    \init_f &: |A| \to S_f \times |B|
+    &&\text{the initializer map}
+    \\
+    \update_f &: S_f \times \D A \to S_f \times \D B
+    &&\text{the update map}
+  \end{align*}
+%
+  satisfying the \emph{coherence conditions} given by \cref{def:coherent-incremental-map}.
+\end{definition}
+
+\begin{definition}
+  The \emph{underlying function} $|f| : |A| \to |B|$ of an incremental map $f : A \to B$ is defined by $|f|(a) = b ~\text{whenever}~ \init_f(a) = (s,b)$.
+\end{definition}
+
+\begin{definition}
+  The \emph{reachability relation} $R_f \subseteq S_f \times |A|$ of an incremental map $f : A \to B$ is defined inductively by:
+%
+  %% \begin{mathpar}
+  %%   \infer{f(a) = (s,b)}{R(a,b,s)}
+  %%
+  %%   \infer{R(a,b,s) \\ \changes{da}{a}{a'} \\ f_\D(s,da) = (s',db) }
+  %%   {\ex{b'} \changes{db}{b}{b'} \\ R(a', b', s') }
+  %% \end{mathpar}
+  \begin{mathpar}
+    \infer{f(a) = (s,b)}{R_f(s,a)}
+
+    \infer{R_f(s,a) \\ \changes{da}{a}{a'} \\ \delta_f(s,da) = (s',db) }
+    {R_f(s', a') }
+  \end{mathpar}
+\end{definition}
+
+\begin{definition}\label{def:coherent-incremental-map}
+  An incremental map is \emph{coherent} if
+  $R_f(s,a)$ and $\changes{da}{a}{a'} : A$ and $\update_f(s, da) = (s', db)$ imply $\changes{db}{|f|(a)}{|f|(a')} : B$.
+  Equivalently \todo{(why?)}, if there exists a relation $T \subseteq S_f \times |A| \times |B|$ which makes the following inference rules hold:
+%
+  \begin{mathpar}
+    \infer{f(a) = (s,b)}{T(s,a,b)}
+
+    \infer{T(s,a,b) \\ \changes{da}{a}{a'} \\ \update_f(s,da) = (s',db)}
+    {\ex{b'} \changes{db}{b}{b'} \\ T(s',a',b')}
+  \end{mathpar}
+
+  \noindent
+  \todo{TODO: Check these conditions against Definition 20 in Mamouras' \href{https://kmamouras.github.io/papers/streams-ESOP'20.pdf}{\emph{Semantic Foundations for Deterministic Dataflow and Stream Processing}} -- they should be equivalent?}
+\end{definition}
+
+\noindent
+I am indebted to Runqing Xu's CoqPL 2025 presentation ``A Framework for Differential Operators'' for providing the insight behind \cref{def:coherent-incremental-map}, although it is not quite identical to any definition given there (so far as I can tell).
+
+\begin{definition}
+  An \emph{update function} for a change structure $A$ is some $\oplus_A : |A| \times \D A \to |A|$ such that $\fa{a,da} \changes{da}{a}{a \oplus_A da}$.
+\end{definition}
+
+\begin{remark}
+  Observe that, from a function $f : |A| \to |B|$, a derivative $f' : |A| \times \D A \to \D B$, and an update function $\oplus_A : |A| \times \D A \to |A|$, we can construct an incremental map $g : A \to B$ as follows:
+  \begin{align*}
+    S_g &= |A|
+    &
+    \init_g(a) &= (a, f(a))
+    &
+    \delta_g(a,da) &= (a \oplus da, f'(a,da))
+  \end{align*}
+\end{remark}
+
+\noindent
+\todo{Can we go in reverse: construct a derivative from an incremental map? Probably not.}
+
+
+\end{document}
