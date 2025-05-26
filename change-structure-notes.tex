@@ -116,15 +116,16 @@ We ``change'' values by adding to them with $+$, while $0$ represents ``no chang
 \end{definition}
 
 \begin{definition}[State monoid]
-  Given a set $S$ and a monoid $(A,+,0)$, we define the monoid of $A$-valued $S$-transformations as $\State(S,A) \defeq (S \to S \times A, \text{nop}, \text{seq})$ where
+  Given a set $S$ and a monoid $(A,+,0)$, we define the monoid $\State(S,A)$ of $A$-valued $S$-transformations as:
 %
   \begin{align*}
-    \text{nop}(s) &= (s, 0)\\
+    \State(S,A) &= S \to S \times A\\
+    0_{\State(S,A)} &= s \mapsto (s, 0_A)\\
     %% \text{seq}(f,g)(s) &=
     %% \text{let}~ (s_1,a_1) = g(s) ~\text{in let}~ (s_2,a2) = f(s_1) ~\text{in}~
     %% (s_2, a_1 + a_2)
-    \text{seq}(f,g)(s) &= (s'', a_1 + a_2)
-    ~\text{where}~ (s', a_1) = f(s) ~\text{and}~ (s'', a_2) = g(s')
+    (f +_{\State(S,A)} g) &= s \mapsto (s'', a_1 +_A a_2)
+    ~\text{where}~ (s', a_1) = f\<s ~\text{and}~ (s'', a_2) = g\<s'
   \end{align*}
 \end{definition}
 
@@ -214,7 +215,7 @@ These are \emph{monoid actions,} another well-known mathematical structure, but 
 \section{Change structures}
 
 Change structures represent a type equipped with a type of deltas, \emph{without} assuming that deltas form a monoid.
-Their definition is given by Giarrusso in his PhD thesis, although I believe he calls the definition I give here ``basic change structures''.
+Their definition is given by Paolo Giarrusso in his PhD thesis, although I believe he calls the definition I give here ``basic change structures''.
 Their roots lie in an earlier paper ``A theory of changes for higher-order languages'' by Cai et al.
 
 \begin{definition}
