@@ -61,6 +61,7 @@
 
 \theoremstyle{definition}
 \newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
 \theoremstyle{remark}
 \newtheorem{remark}{Remark}
 
@@ -85,13 +86,18 @@
 \newcommand\ex[1]{\quantify{\exists #1}}
 \newcommand\faex[2]{\quantify{\forall #1, \exists #2}}
 
+\newcommand\x\times
+\newcommand\lto\multimap
+\newcommand\ito{\to_\D}
+%\renewcommand\ito{\overset{\D}{\to}}
+%\renewcommand\ito\Rightarrow
+
 \newcommand\changes[3]{{#1} \dblcolon {#2} \leadsto {#3}}
 \newcommand\D\Delta
 \newcommand\init{\text{init}}
 \newcommand\update{\text{update}}
 \newcommand\Set{\text{Set}}
 \newcommand\State{\text{State}}
-\newcommand\lto\multimap
 
 \newcommand\todo[1]{\ensuretext{\color{OrangeRed}#1}}
 
@@ -129,40 +135,109 @@ We ``change'' values by adding to them with $+$, while $0$ represents ``no chang
   \end{align*}
 \end{definition}
 
-\newcommand\initout{\init^{\text{out}}}
-\newcommand\initstate{\init^{\text{state}}}
+\newcommand\initout{\text{out}}
+\newcommand\initstate{\init}
 
 \begin{definition}
-  An \emph{incremental map} $f : A \to B$ between monoids $A, B$ is a tuple $(S_f, \initout_f, \initstate_f, \update_f)$ where:
+  An \emph{incremental map} $f : A \ito B$ between monoids $A, B$ is a tuple $(S_f, \initstate_f, \initout_f, \update_f)$ where:
+%
   \begin{align*}
     S_f &: \Set
     &
-    \initout_f &: B
-    &
     \initstate_f &: S_f
+    &
+    \initout_f &: B
     &
     \update_f &: A \lto \State({S_f}, B)
   \end{align*}
 \end{definition}
 
 \noindent
-The idea is that elements of $S_f$ represent the states of our incremental operator, and $\initstate_f$ is our initial such state.
-Then $\update_f(a)(s)$ takes an input delta $a : A$ and a state $s : S_f$ and produces a pair $(s', b)$ of an updated state $s' : S_f$ and an output delta $b : B$.
-Finally, $\initout_f$ represents the ``initial output'' that we produce even with an input of $0_A$.
+$S_f$ is the set of states of our incremental operator, and $\initstate_f$ its initial state.
+$\initout_f$ is the initial output the operator produces before receiving any input.
+$\update_f \<a \<s$ takes an input delta $a : A$ and a state $s : S_f$ and produces a pair $(s', b)$ of an updated state $s' : S_f$ and an output delta $b : B$.
 Putting this together we can recover the function we are incrementalizing:
 
 \begin{definition}
-  The \emph{underlying function} $|f| : A \to B$ of an incremental map $f : A \to B$ is given by:
+  The \emph{underlying function} $|f| : A \to B$ of an incremental map $f : A \ito B$ is given by:
 %
   \begin{align*}
-    |f|(a) &= \initout_f + b  ~\text{where}~(s,b) = \update_f(a)(\initstate_f)
+    |f|(a) &= b + b'  ~\text{where}~(s,b) = \init_f
+    ~\text{and}~ (s',b') = \update_f \<a \<s
   \end{align*}
 \end{definition}
 
 \noindent
-\todo{TODO: Prove determinism of incremental maps.}
-\\
+\color{OrangeRed} THE FOLLOWING IS FULL OF BUGS.
+
+\begin{definition}
+  Given an incremental map $f : A \ito B$, its \emph{action on sequences} $f^* : A^* \lto \State(S_f, B^*)$ is given by
+  \begin{align*}
+    f^* \<[a_1, \dots, a_n] &= \sum_i \left(s \mapsto (s', [b]) ~\text{where}~ (s',b) = \update_f \<a_i \<s\right)
+  \end{align*}
+%
+  Being a bit more explicit about the threading-through of state here, this is equivalent to $f^* \<[a_1, \dots, a_n] \<s_0 = (s_n,\, [b_1, \dots, b_n])$ where $s_i, b_i$ are defined by the recurrence $(s_i, b_i) = \update_f \<a_i \<s_{i-1}$.
+\end{definition}
+
+  %% \todo{WRONG} $f^*(a_1, \dots, a_n) = \sum_i \update_f \< a_i$ \todo{NEXT IS ALSO WRONG}
+  %% or as the explicit definition $f^*(a_1, \dots, a_n) = (s_{n+1}, (b_1, \dots, b_{n+1}))$ where
+  %% \begin{align*}
+  %%   (s_1, b_1) &= \init_f
+  %%   &
+  %%   (s_{i+1}, b_{i+1}) &= \update_f \<a_i \<s_i
+  %% \end{align*}
+
+\begin{remark}
+  Observe that $\sum \pi_2 \<(f^* \<[a_0, \dots, a_n] \<s) = \pi_2 \<(f\< (\sum_i a_i) \<s)$
+\end{remark}
+
+\noindent\todo{TODO: Explain ``running'' a program on a stream/sequence using its action on sequences.}
+
+\begin{theorem}[Determinism]
+  For any incremental map $f : A \ito B$, we have $\sum f^*((a_i)_i) = |f|\left(\sum_i a_i\right)$: the sum of the incremental map's action on a sequence is the underlying function of the sum of the sequence.
+\end{theorem}
+
+\begin{proof} Fix some $a_1, ..., a_n$ and let
+  \begin{align*}
+    (s_1, b_1) &= \init_f
+    &
+    (s_{i+1}, b_{i+1}) &= \update_f \<a_i \<s_i
+  \end{align*}
+
+  \noindent
+  We will show inductively for all $1 \le k \le n+1$ that
+  \begin{align*}
+    (s_{k}, \sum_{i=2}^{k} b_i)
+    = \update_f \<\left(\sum_{i=1}^k \<a_i\right) \<s_1
+  \end{align*}
+  \\
+  This follows from \todo{TODO} the fact that $\update_f : A \lto \State(S_f, B)$ is a monoid homomorphism, meaning:
+  \begin{align*}
+    \update_f \<0_A
+    &= 0_{\State(S_f,A)}
+    \\
+    &= s \mapsto (s, 0_B)
+    \\
+    \update_f \<(a_1 + a_2)
+    &= \update_f \<a_1 +_{\State(S_f,A)} \update_f \<a_2
+    \\
+    &= s \mapsto (s'', b_1 + b_2)
+    ~\text{where}~(s',b_1) = \update_f \<s \<a_1\\
+    &\phantom{= s \mapsto (s'', b_1 + b_2) ~\quad\hspace{1pt}}
+    ~\text{and}~  (s'',b_2) = \update_f \<s' \<a_2
+  \end{align*}
+
+  \strong{Case} $0$: We have $|f|(0_A) = b + b'$ where $(s,b) = \init_f$ and $(s',b') = \update_f \<0_A \<s$. We know $(s,b) = \init_f = (s_1, b_1)$, and by monoid homomorphism we know $(s', b') = \update_f \<0_A \<s = 0_{\State(S_f,B)} \<s_1 = (s_1, 0_B)$. Thus $|f|(0_A) = b_1 + 0 = b_1$ as desired.
+
+  \strong{Case} $k+1$: We have $|f|(a_1 + \dots + a_k) = b + b'$ where $(s,b) = \init_f$ and $(s', b') = \update_f \<(a_1 + \dots + a_k) \<s$.
+%
+  Since $\update_f$ is a monoid homomorphism, this means $(s',b') = (\sum_{i=1}^k \update_f \<a_i) \<s$.
+\end{proof}
+
+\noindent
 \todo{TODO: Show how to compose incremental maps.}
+
+\color{black}
 
 
 \section{Change actions}
@@ -195,7 +270,7 @@ These are \emph{monoid actions,} another well-known mathematical structure, but 
 \end{definition}
 
 \begin{definition}
-  A \emph{incremental map} $f : A \to B$ between change actions $A,B$ is a tuple $(S_f, \init_f, \update_f)$ where
+  A \emph{incremental map} $f : A \ito B$ between change actions $A,B$ is a tuple $(S_f, \init_f, \update_f)$ where
 %
   \begin{align*}
     S_f &: \Set
@@ -235,7 +310,7 @@ Their roots lie in an earlier paper ``A theory of changes for higher-order langu
 \end{definition}
 
 \begin{definition}
-  A \emph{incremental map} $f : A \to B$ between change structures $A,B$ consists of a triple $(S_f, \init_f, \update_f)$ with these types:
+  A \emph{incremental map} $f : A \ito B$ between change structures $A,B$ consists of a triple $(S_f, \init_f, \update_f)$ with these types:
 %
   \begin{align*}
     S_f &: \Set
@@ -252,11 +327,11 @@ Their roots lie in an earlier paper ``A theory of changes for higher-order langu
 \end{definition}
 
 \begin{definition}
-  The \emph{underlying function} $|f| : |A| \to |B|$ of an incremental map $f : A \to B$ is defined by $|f|(a) = b ~\text{whenever}~ \init_f(a) = (s,b)$.
+  The \emph{underlying function} $|f| : |A| \to |B|$ of an incremental map $f : A \ito B$ is defined by $|f|(a) = b ~\text{whenever}~ \init_f(a) = (s,b)$.
 \end{definition}
 
 \begin{definition}
-  The \emph{reachability relation} $R_f \subseteq S_f \times |A|$ of an incremental map $f : A \to B$ is defined inductively by:
+  The \emph{reachability relation} $R_f \subseteq S_f \times |A|$ of an incremental map $f : A \ito B$ is defined inductively by:
 %
   %% \begin{mathpar}
   %%   \infer{f(a) = (s,b)}{R(a,b,s)}
@@ -296,7 +371,7 @@ I am indebted to Runqing Xu's CoqPL 2025 presentation ``A Framework for Differen
 \end{definition}
 
 \begin{remark}
-  Observe that, from a function $f : |A| \to |B|$, a derivative $f' : |A| \times \D A \to \D B$, and an update function $\oplus_A : |A| \times \D A \to |A|$, we can construct an incremental map $g : A \to B$ as follows:
+  Observe that, from a function $f : |A| \to |B|$, a derivative $f' : |A| \times \D A \to \D B$, and an update function $\oplus_A : |A| \times \D A \to |A|$, we can construct an incremental map $g : A \ito B$ as follows:
   \begin{align*}
     S_g &= |A|
     &
